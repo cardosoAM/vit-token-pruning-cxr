@@ -1,0 +1,46 @@
+# Credenciais e configuração privada
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials*
+# Dados sujeitos a autorização
+data/*
+!data/README.md
+private/
+datasets/
+*.dcm
+*.dicom
+*.jpg
+*.jpeg
+*.png
+*.parquet
+# Artefatos de treinamento e predições individuais
+checkpoints/
+runs/
+wandb/
+results/raw/
+predictions/
+*.pt
+*.pth
+*.ckpt
+# Ambientes e caches
+.venv/
+venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+# Compilação LaTeX
+*.aux
+*.log
+*.out
+*.toc
+*.nav
+*.snm
+*.fls
+*.fdb_latexmk
+*.bbl
+*.blg
+build/
+tmp/

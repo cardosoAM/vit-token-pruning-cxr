@@ -1,0 +1,263 @@
+\documentclass[aspectratio=169,10pt]{beamer}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[brazil]{babel}
+\usepackage{lmodern}
+\usepackage{booktabs}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning}
+
+\definecolor{navy}{RGB}{20,52,84}
+\definecolor{blue}{RGB}{30,113,184}
+\definecolor{lightblue}{RGB}{231,241,250}
+\definecolor{orange}{RGB}{224,120,45}
+\definecolor{green}{RGB}{46,125,90}
+\definecolor{graytext}{RGB}{70,78,86}
+
+\setbeamercolor{normal text}{fg=graytext,bg=white}
+\setbeamercolor{structure}{fg=navy}
+\setbeamercolor{frametitle}{fg=white,bg=navy}
+\setbeamercolor{title}{fg=white}
+\setbeamercolor{subtitle}{fg=lightblue}
+\setbeamercolor{author}{fg=white}
+\setbeamercolor{institute}{fg=lightblue}
+\setbeamercolor{date}{fg=lightblue}
+\setbeamercolor{block title}{fg=white,bg=blue}
+\setbeamercolor{block body}{fg=graytext,bg=lightblue}
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{itemize item}{\color{orange}\small$\blacktriangleright$}
+\setbeamertemplate{itemize subitem}{\color{blue}\scriptsize$\bullet$}
+\setbeamertemplate{enumerate item}{\color{orange}\insertenumlabel.}
+\setbeamertemplate{footline}{%
+  \leavevmode%
+  \hbox{%
+    \begin{beamercolorbox}[wd=.82\paperwidth,ht=2.7ex,dp=1.2ex,leftskip=1em]{author in head/foot}%
+      \color{navy}\scriptsize Matheus Cardoso de Araujo \hspace{0.6em}|\hspace{0.6em} BCC502
+    \end{beamercolorbox}%
+    \begin{beamercolorbox}[wd=.18\paperwidth,ht=2.7ex,dp=1.2ex,center]{date in head/foot}%
+      \color{navy}\scriptsize \insertframenumber/\inserttotalframenumber
+    \end{beamercolorbox}%
+  }%
+}
+
+\newcommand{\metricbox}[3]{%
+  \begin{tikzpicture}
+    \node[rounded corners=3pt,fill=#1,minimum width=3.25cm,minimum height=1.45cm,align=center,text=white]
+      {\Large\bfseries #2\\[-1pt]\scriptsize #3};
+  \end{tikzpicture}%
+}
+
+\title{Poda Dinâmica de Tokens em Vision Transformers}
+\subtitle{Eficiência e não inferioridade na classificação de achados em radiografias de tórax}
+\author{Matheus Cardoso de Araujo}
+\institute{BCC502 -- Metodologia Científica para Ciência da Computação}
+\date{17 de julho de 2026}
+
+\begin{document}
+
+{
+\setbeamertemplate{footline}{}
+\setbeamercolor{background canvas}{bg=navy}
+\begin{frame}
+  \titlepage
+  \vfill
+  \begin{center}
+    \color{orange}\rule{0.68\textwidth}{2pt}
+  \end{center}
+\end{frame}
+}
+
+\begin{frame}{1. Contextualização do problema}
+  \begin{columns}[T,onlytextwidth]
+    \column{0.52\textwidth}
+      \begin{block}{Domínio}
+        Modelos de apoio podem classificar achados em radiografias de tórax, mas imagens de alta resolução elevam o custo de processamento.
+      \end{block}
+      \vspace{0.5em}
+      \begin{itemize}
+        \item ViTs modelam relações globais entre regiões.
+        \item A autoatenção cresce quadraticamente com o número de tokens.
+        \item Sinais discretos não podem ser descartados sem avaliação.
+      \end{itemize}
+    \column{0.43\textwidth}
+      \begin{center}
+      \begin{tikzpicture}[node distance=0.55cm]
+        \node[draw=navy,rounded corners,fill=lightblue,minimum width=4.2cm,minimum height=.8cm] (xray) {Radiografia};
+        \node[draw=blue,rounded corners,fill=blue!12,below=of xray,minimum width=4.2cm,minimum height=.8cm] (tokens) {Tokens visuais};
+        \node[draw=orange,rounded corners,fill=orange!12,below=of tokens,minimum width=4.2cm,minimum height=.8cm] (attn) {Autoatenção};
+        \node[draw=green,rounded corners,fill=green!12,below=of attn,minimum width=4.2cm,minimum height=.8cm] (out) {Cinco achados};
+        \draw[-{Latex},thick,navy] (xray)--(tokens);
+        \draw[-{Latex},thick,navy] (tokens)--(attn);
+        \draw[-{Latex},thick,navy] (attn)--(out);
+      \end{tikzpicture}
+      \end{center}
+  \end{columns}
+  \vfill
+  {\scriptsize Base: MIMIC-CXR-JPG v2.1.0; 377.110 imagens e divisão oficial por paciente.}
+\end{frame}
+
+\begin{frame}{2. Lacuna e escolha da abordagem}
+  \begin{columns}[T,onlytextwidth]
+    \column{0.47\textwidth}
+      \textbf{\color{navy}O que a literatura já mostra}
+      \begin{itemize}
+        \item ViT é competitivo em visão.
+        \item Pré-treinamento específico melhora ViTs em radiografias.
+        \item DynamicViT e EViT reduzem custo em imagens naturais.
+      \end{itemize}
+    \column{0.47\textwidth}
+      \textbf{\color{navy}O que ainda precisa ser testado}
+      \begin{itemize}
+        \item O ganho persiste em radiografias?
+        \item Tokens pequenos, mas relevantes, são preservados?
+        \item Qual é o melhor compromisso desempenho--custo?
+      \end{itemize}
+  \end{columns}
+  \vspace{1em}
+  \begin{block}{Decisão metodológica}
+    Aproveitar a \textbf{Proposta 3}, baseada em benchmark público, mas trocar a promessa de ``superar o estado da arte'' por uma comparação controlada e refutável entre o mesmo ViT com e sem poda.
+  \end{block}
+\end{frame}
+
+\begin{frame}{3. Questão e objetivo geral}
+  \begin{block}{Questão de pesquisa}
+    Em condições equivalentes de arquitetura, dados e treinamento, a poda dinâmica de tokens reduz de maneira material o custo computacional sem produzir perda relevante de desempenho multirrótulo?
+  \end{block}
+  \vspace{0.7em}
+  \textbf{\color{navy}Objetivo geral}
+
+  Avaliar se a poda dinâmica de tokens em um ViT reduz o custo da classificação multirrótulo de achados no MIMIC-CXR-JPG sem perda relevante de desempenho, em comparação com o mesmo modelo sem poda.
+
+  \vfill
+  \begin{center}
+    \metricbox{blue}{Mesmo ViT}{controle justo}\hspace{0.45cm}
+    \metricbox{orange}{Poda dinâmica}{intervenção}\hspace{0.45cm}
+    \metricbox{green}{Custo + qualidade}{resultado}
+  \end{center}
+\end{frame}
+
+\begin{frame}{4. Objetivos específicos}
+  \begin{enumerate}
+    \item \textbf{Quantificar a referência:} macro-AUROC, macro-AUPRC, operações, latência, vazão e memória do ViT-S/16 sem poda.
+    \vspace{0.55em}
+    \item \textbf{Estimar o efeito:} medir diferentes taxas de retenção, mantendo os demais fatores experimentais constantes.
+    \vspace{0.55em}
+    \item \textbf{Testar não inferioridade:} estimar incerteza e estabilidade em cinco sementes.
+    \vspace{0.55em}
+    \item \textbf{Sintetizar a contribuição:} identificar o fronte de Pareto e formular recomendações reproduzíveis.
+  \end{enumerate}
+\end{frame}
+
+\begin{frame}{5. Hipótese de trabalho}
+  \begin{block}{Hipótese}
+    Um ViT-S/16 com poda dinâmica reduzirá em pelo menos \textbf{25\%} as operações por imagem e será \textbf{não inferior} ao ViT-S/16 sem poda na macro-AUROC, com margem de \textbf{0,01}.
+  \end{block}
+  \vspace{0.9em}
+  \begin{center}
+    \metricbox{orange}{$\geq 25\%$}{redução de FLOPs}
+    \hspace{0.6cm}
+    {\Large\color{navy}\bfseries +}
+    \hspace{0.6cm}
+    \metricbox{green}{$\Delta$AUROC $>-0{,}01$}{limite inferior do IC 95\%}
+  \end{center}
+  \vspace{0.7em}
+  \textbf{\color{navy}Regra:} as duas condições devem ser atendidas; a falha de qualquer uma rejeita a hipótese.
+\end{frame}
+
+\begin{frame}{6. Estratégia de investigação}
+  \begin{center}
+  \begin{tikzpicture}[
+    node distance=.35cm,
+    box/.style={draw=navy,rounded corners=3pt,fill=lightblue,minimum width=2.55cm,minimum height=1.05cm,align=center,font=\small},
+    arr/.style={-{Latex},thick,navy}
+  ]
+    \node[box] (data) {MIMIC-CXR-JPG\\split oficial};
+    \node[box,right=of data] (train) {Treino equivalente\\5 sementes};
+    \node[box,right=of train] (select) {Validação\\70\%, 50\%, 35\%};
+    \node[box,right=of select] (test) {Teste final\\uma única vez};
+    \draw[arr] (data)--(train);
+    \draw[arr] (train)--(select);
+    \draw[arr] (select)--(test);
+  \end{tikzpicture}
+  \end{center}
+  \vspace{0.8em}
+  \begin{columns}[T,onlytextwidth]
+    \column{0.48\textwidth}
+      \textbf{\color{navy}Controle}
+      \begin{itemize}
+        \item mesmos pesos iniciais e dados;
+        \item mesmo otimizador e épocas;
+        \item seleção apenas na validação;
+        \item cinco achados e imagens frontais.
+      \end{itemize}
+    \column{0.48\textwidth}
+      \textbf{\color{navy}Rótulos incertos}
+      \begin{itemize}
+        \item mascarados na análise principal;
+        \item políticas U-Zero e U-One como sensibilidade;
+        \item resultados por classe e agregados.
+      \end{itemize}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{7. Validação e critérios}
+  \begin{columns}[T,onlytextwidth]
+    \column{0.48\textwidth}
+      \begin{block}{Desempenho}
+        Macro-AUROC primária; macro-AUPRC e métricas por classe como resultados complementares.
+      \end{block}
+      \begin{block}{Incerteza}
+        \emph{Bootstrap} pareado por estudo, IC 95\% e correção de Holm nas comparações por classe.
+      \end{block}
+    \column{0.48\textwidth}
+      \begin{block}{Eficiência}
+        FLOPs, parâmetros, pico de memória, latência e imagens por segundo em lotes 1 e 16.
+      \end{block}
+      \begin{block}{Reprodutibilidade}
+        Sementes, versões, hiperparâmetros, hardware e decisões analíticas registrados antes do teste.
+      \end{block}
+  \end{columns}
+  \vfill
+  {\scriptsize O teste mede uma contribuição computacional; não valida uso clínico.}
+\end{frame}
+
+\begin{frame}{8. Limitações, ética e alcance}
+  \begin{itemize}
+    \item Rótulos derivados de laudos podem conter erros e incerteza.
+    \item Uma instituição e cinco achados não garantem generalização clínica.
+    \item Ganhos reais de latência dependem do hardware e da implementação.
+    \item Mapas de tokens não serão tratados como explicações médicas.
+    \item O PhysioNet exige credenciamento, acordo de uso e proíbe reidentificação.
+    \item O projeto passará pela apreciação ética institucional aplicável antes da execução.
+  \end{itemize}
+  \vspace{0.7em}
+  \begin{block}{Conclusão permitida}
+    Determinar se a poda oferece, nas condições declaradas, um compromisso computacional reproduzível. Não afirmar segurança, eficácia clínica ou substituição de radiologistas.
+  \end{block}
+\end{frame}
+
+\begin{frame}{9. Utilização de IA}
+  \begin{columns}[T,onlytextwidth]
+    \column{0.48\textwidth}
+      \textbf{\color{navy}Definido na atividade anterior}
+      \begin{itemize}
+        \item tema de radiografias e visão computacional;
+        \item três propostas iniciais;
+        \item exigência do template e de Wazlawick.
+      \end{itemize}
+    \column{0.48\textwidth}
+      \textbf{\color{navy}Apoio do Codex}
+      \begin{itemize}
+        \item leitura e confronto dos materiais;
+        \item busca e verificação de referências;
+        \item recorte, protocolo e redação em \LaTeX;
+        \item revisão de coerência e apresentação.
+      \end{itemize}
+  \end{columns}
+  \vspace{0.7em}
+  \begin{block}{Transparência}
+    O relatório reproduz integralmente o prompt e atribui ao autor a conferência final das fontes, a adequação aos recursos reais e a responsabilidade pelo conteúdo.
+  \end{block}
+\end{frame}
+
+\end{document}

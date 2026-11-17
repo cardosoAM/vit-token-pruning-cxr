@@ -1,0 +1,9 @@
+cff-version: 1.2.0
+message: "Proposta de pesquisa sem resultados experimentais. Cite a versão/commit efetivamente consultado."
+title: "Poda dinâmica de tokens em Vision Transformers para classificação multirrótulo de achados em radiografias de tórax"
+type: software
+authors:
+  - family-names: "Araujo"
+    given-names: "Matheus Cardoso de"
+repository-code: "https://github.com/cardosoAM/vit-token-pruning-cxr"
+abstract: "Repositório de proposta e planejamento de pesquisa. Implementação e experimentos ainda não disponíveis."

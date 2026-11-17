@@ -1,0 +1,145 @@
+\documentclass[10pt,a4paper]{extarticle}
+\usepackage{parskip}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[brazil]{babel}
+\usepackage{amsmath,amssymb}
+\usepackage{geometry}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{enumitem}
+\usepackage[protrusion=true,expansion=false]{microtype}
+\usepackage{fvextra}
+\usepackage{csquotes}
+\usepackage[most]{tcolorbox}
+\usepackage{natbib}
+
+\definecolor{important}{RGB}{255,100,100}
+\definecolor{notice}{RGB}{0,102,204}
+\definecolor{accent}{RGB}{230,120,30}
+
+\setlist{nosep}
+\geometry{margin=2.5cm}
+\hypersetup{
+  colorlinks=true,
+  linkcolor=black,
+  citecolor=notice,
+  urlcolor=notice,
+  pdfauthor={Matheus Cardoso de Araujo},
+  pdftitle={Poda Dinâmica de Tokens em Vision Transformers para Classificação Multirrótulo de Achados em Radiografias de Tórax}
+}
+
+% O ambiente preserva literalmente o prompt, inclusive sinais especiais e erros de digitação.
+\newenvironment{respbox}{%
+  \VerbatimEnvironment
+  \begin{tcolorbox}[
+    enhanced,
+    breakable,
+    colback=notice!5,
+    colframe=notice!50,
+    boxrule=0.4pt,
+    arc=2pt,
+    left=4pt,
+    right=4pt,
+    top=3pt,
+    bottom=3pt
+  ]%
+  \begin{Verbatim}[
+    fontsize=\scriptsize,
+    breaklines=true,
+    breakanywhere=true,
+    breaksymbolleft={},
+    breaksymbolright={}
+  ]%
+}{%
+  \end{Verbatim}%
+  \end{tcolorbox}%
+}
+
+\title{\textbf{Poda Dinâmica de Tokens em Vision Transformers para Classificação Multirrótulo de Achados em Radiografias de Tórax}\\
+\large Uma avaliação de eficiência e não inferioridade no MIMIC-CXR-JPG}
+\author{Matheus Cardoso de Araujo\\
+BCC502 -- Metodologia Científica para Ciência da Computação}
+\date{17 de julho de 2026}
+
+\begin{document}
+
+\maketitle
+
+\section{Contextualização e Problema de Pesquisa}
+
+A radiografia de tórax é um exame amplamente empregado na investigação de alterações cardiopulmonares, mas sua interpretação adequada depende de formação especializada e está sujeita a diferenças de experiência, carga de trabalho e disponibilidade de profissionais. Nesse cenário, modelos de aprendizagem profunda podem atuar como sistemas de apoio, priorizando exames ou indicando achados que merecem revisão. A finalidade desta pesquisa não é substituir a decisão médica nem produzir um dispositivo pronto para uso clínico, mas estudar um problema de Ciência da Computação que antecede esse uso: como reduzir o custo de um classificador visual sem degradar de forma relevante seu desempenho preditivo. Essa delimitação evita confundir uma avaliação computacional retrospectiva com a validação clínica de um sistema diagnóstico.
+
+O desenvolvimento de métodos reproduzíveis para radiografias foi favorecido pela publicação da MIMIC-CXR, base desidentificada com 377.110 imagens correspondentes a 227.835 estudos de 65.379 pacientes e respectivos laudos radiológicos \citep{johnson2019mimic}. Sua versão MIMIC-CXR-JPG oferece imagens em formato JPG, rótulos estruturados extraídos dos laudos e uma divisão recomendada entre treinamento, validação e teste, o que permite comparar modelos sobre os mesmos pacientes e reduz o risco de vazamento entre partições \citep{johnson2024mimicjpg}. A base, contudo, não elimina dificuldades metodológicas: os rótulos de treinamento foram produzidos por rotuladores automáticos, há observações incertas, as frequências das classes são desbalanceadas e os dados provêm de uma única instituição. Logo, uma acurácia global isolada seria insuficiente e poderia ocultar desempenho ruim em achados menos frequentes.
+
+Na arquitetura dos modelos, \citet{dosovitskiy2021vit} mostraram que um \emph{Vision Transformer} (ViT) pode representar uma imagem como uma sequência de regiões, ou \emph{tokens}, e modelar relações globais por autoatenção. O mecanismo é atraente para radiografias, nas quais alterações podem ocupar regiões espacialmente distantes, mas a autoatenção possui custo que cresce quadraticamente com o número de tokens. Esse custo se torna especialmente relevante quando imagens de maior resolução são necessárias para preservar estruturas pequenas. Em trabalho publicado na conferência WACV, \citet{xiao2023mae} demonstraram que o pré-treinamento com autoencoders mascarados em 266.340 radiografias torna um ViT competitivo com uma DenseNet-121 em tarefas multirrótulo de tórax. O resultado sustenta a aplicabilidade da arquitetura ao domínio médico, mas o foco do estudo está na qualidade da representação e no treinamento, não na redução controlada do custo de inferência.
+
+Uma linha complementar procura remover tokens pouco informativos ao longo da rede. No NeurIPS, \citet{rao2021dynamicvit} propuseram o DynamicViT, que estima progressivamente a importância dos tokens e relatou, em bases de imagens naturais, redução de 31\% a 37\% das operações de ponto flutuante e aumento de vazão superior a 40\%, com queda de acurácia inferior a 0,5 ponto percentual. No ICLR, \citet{liang2022evit} reorganizaram tokens atentos e não atentos e também obtiveram melhor compromisso entre velocidade e acurácia. Mais recentemente, \citet{rubab2026dynavit} investigaram uma seleção anterior ao codificador, sem parâmetros adicionais, novamente em bases genéricas. Esses resultados mostram que a redundância espacial pode ser explorada, porém não estabelecem que o mesmo compromisso se mantém em radiografias: um token aparentemente discreto pode conter uma alteração pequena e clinicamente relevante. Transferir diretamente os limiares usados em imagens naturais, portanto, pode economizar computação à custa de apagar evidência necessária à classificação.
+
+Outra decisão importante diz respeito à referência dos rótulos. O rotulador CheXpert identifica quatorze observações e representa explicitamente menções incertas nos laudos \citep{irvin2019chexpert}. A disponibilidade desses rótulos na MIMIC-CXR-JPG torna possível uma avaliação padronizada, mas não converte automaticamente menções textuais em verdade clínica. Nesta proposta, os casos incertos serão mascarados na função de perda principal e serão reavaliados em análises de sensibilidade com políticas alternativas, de modo que a conclusão não dependa de uma única codificação arbitrária. Serão considerados cinco achados comumente usados em avaliações do CheXpert --- atelectasia, cardiomegalia, consolidação, edema e derrame pleural --- e o problema será denominado classificação de achados, não diagnóstico definitivo.
+
+À luz dos elementos de pesquisa, revisão bibliográfica, formulação de questões e análise crítica recomendados nos Capítulos 6 a 9 de \citet{wazlawick2020}, a oportunidade científica não consiste em apenas implementar mais um classificador, tampouco em prometer antecipadamente um novo estado da arte. A lacuna específica é a ausência, no conjunto de trabalhos examinados, de uma comparação controlada que isole o efeito da poda dinâmica de tokens sobre eficiência e desempenho multirrótulo no MIMIC-CXR-JPG. A questão de pesquisa é: \emph{em um ViT de mesma capacidade, dados e regime de treinamento, a poda dinâmica de tokens reduz de maneira material o custo computacional sem produzir perda relevante de desempenho na classificação multirrótulo de achados em radiografias de tórax?} A resposta produzirá conhecimento mesmo se a hipótese for rejeitada, pois delimitará em quais taxas de retenção a eficiência deixa de compensar a perda preditiva.
+
+\section{Objetivos}
+
+\subsection{Objetivo Geral}
+
+Avaliar se a poda dinâmica de tokens em um \emph{Vision Transformer} reduz o custo computacional da classificação multirrótulo de achados em radiografias de tórax no MIMIC-CXR-JPG sem perda relevante de desempenho preditivo, em comparação com o mesmo modelo sem poda.
+
+\subsection{Objetivos Específicos}
+
+\begin{enumerate}[label=\textbf{OE\arabic*.}]
+  \item Quantificar o desempenho preditivo, o número de operações, a latência, a vazão e o pico de memória de um ViT-S/16 sem poda sob um protocolo reproduzível no MIMIC-CXR-JPG.
+  \item Determinar o efeito de diferentes taxas de retenção dinâmica de tokens sobre a macro-AUROC, a macro-AUPRC e as métricas de eficiência, mantendo constantes os demais fatores experimentais.
+  \item Verificar a não inferioridade do melhor modelo podado em relação ao modelo de referência e estimar a estabilidade dos resultados entre inicializações aleatórias.
+  \item Identificar configurações no fronte de Pareto entre desempenho e custo e, a partir delas, formular recomendações reproduzíveis para o uso de poda de tokens em classificadores de radiografias.
+\end{enumerate}
+
+O primeiro objetivo estabelece a referência contra a qual qualquer ganho deverá ser demonstrado; o segundo mede a relação, e não apenas um ponto isolado, entre parcimônia e desempenho; o terceiro submete a comparação a incerteza estatística e repetição; e o quarto converte os resultados em uma contribuição verificável e reutilizável. Em conjunto, eles permitem responder ao objetivo geral sem tratar a mera implementação do protótipo como resultado científico.
+
+\section{Hipótese de Trabalho}
+
+\textbf{Um ViT-S/16 com poda dinâmica progressiva de tokens reduzirá em pelo menos 25\% o número de operações de ponto flutuante por imagem e será não inferior ao mesmo ViT-S/16 sem poda na macro-AUROC dos cinco achados avaliados no conjunto de teste do MIMIC-CXR-JPG, considerando margem de não inferioridade de 0,01.}
+
+A hipótese é plausível porque a autoatenção processa regiões redundantes e porque DynamicViT e EViT preservaram grande parte do desempenho ao reduzir tokens em classificação de imagens naturais \citep{rao2021dynamicvit,liang2022evit}. Ao mesmo tempo, ela não é tomada como verdadeira por analogia: radiografias possuem baixo contraste, sinais pequenos e rótulos ruidosos, de modo que a poda pode remover informação necessária. O experimento comparará a arquitetura de referência com versões que retêm proporções predefinidas de tokens, usando os mesmos dados, pesos iniciais, transformações, otimizador, épocas e orçamento de busca. Serão usadas cinco sementes, e o teste será realizado apenas após a escolha da configuração no conjunto de validação.
+
+A hipótese será aceita somente se as duas condições conjuntivas forem atendidas: a contagem de operações indicar redução de ao menos 25\% e o limite inferior do intervalo de confiança de 95\% para a diferença de macro-AUROC entre o modelo podado e o modelo de referência permanecer acima de $-0{,}01$. A diferença será estimada por reamostragem \emph{bootstrap} estratificada no nível do estudo, preservando o pareamento das predições. A latência, a vazão e a memória serão resultados secundários, medidos no mesmo equipamento após aquecimento, pois uma redução teórica de operações nem sempre se transforma em aceleração real. A hipótese será rejeitada se qualquer condição principal falhar. AUROC e AUPRC por classe serão reportadas com intervalos e correção de Holm para comparações múltiplas, sem substituir o desfecho primário predefinido.
+
+\section{Estratégia de Investigação e Validação}
+
+A investigação será quantitativa, experimental e controlada. Após credenciamento no PhysioNet e assinatura do acordo de uso, serão empregadas as imagens frontais e a divisão oficial por paciente da MIMIC-CXR-JPG versão 2.1.0. Serão mantidos os cinco rótulos definidos na contextualização. Menções incertas serão ignoradas na perda principal por meio de uma máscara, enquanto as análises de sensibilidade as mapearão separadamente para ausência e presença. As imagens serão redimensionadas e normalizadas por um procedimento único, e eventuais aumentos de dados serão aplicados apenas ao treinamento. O código registrará versões das bibliotecas, hiperparâmetros, sementes e identificadores dos experimentos; imagens e informações sujeitas ao acordo não serão redistribuídas.
+
+O modelo de referência será um ViT-S/16 inicializado com os mesmos pesos públicos usados pelas variantes podadas. A intervenção consistirá em módulos de seleção dinâmica inseridos em profundidades predefinidas, com configurações que representem retenção final aproximada de 70\%, 50\% e 35\% dos tokens. O conjunto de validação selecionará a configuração com menor custo que ainda satisfaça a margem de não inferioridade. Para evitar favorecer a proposta, todas as variantes receberão o mesmo limite de épocas e a mesma busca de taxa de aprendizagem; caso a poda adicione parâmetros, a quantidade será explicitada. Uma DenseNet-121 será incluída apenas como referência externa de contexto, não como controle principal, pois a inferência causal sobre o efeito da poda exige comparar modelos ViT equivalentes.
+
+O desempenho preditivo será medido por macro-AUROC e macro-AUPRC nos cinco achados, acompanhadas de resultados por classe. A eficiência será caracterizada por operações de ponto flutuante, parâmetros, pico de memória, latência por imagem e imagens por segundo em lotes de tamanho 1 e 16. As medições de tempo terão execuções de aquecimento e repetições suficientes para intervalos por reamostragem, sempre no mesmo hardware, versão de \emph{driver} e precisão numérica. Curvas de retenção versus desempenho e o fronte de Pareto permitirão distinguir um ganho equilibrado de uma simples troca de acurácia por velocidade. Cinco repetições de treinamento e intervalos de confiança reduzirão a dependência de uma inicialização favorável. O conjunto de teste permanecerá oculto durante a seleção, e uma tabela de decisões analíticas será registrada antes da avaliação final.
+
+Como verificação de robustez, serão repetidas as análises com políticas alternativas para rótulos incertos, por classe e em estratos disponíveis de sexo e faixa etária, quando o acordo de uso e os metadados permitirem. Essa análise não demonstrará equidade clínica, mas poderá revelar degradações médias ocultadas pela métrica agregada. Mapas de tokens retidos serão inspecionados apenas como diagnóstico qualitativo do mecanismo; eles não serão apresentados como explicações clínicas. A base já é desidentificada e não haverá recrutamento ou intervenção com participantes, mas o projeto será submetido à apreciação institucional aplicável antes da execução, além de cumprir integralmente o acordo do PhysioNet e a proibição de tentativa de reidentificação.
+
+A estratégia possui limites que restringem o alcance das conclusões. Rótulos derivados de laudos podem conter erro e não equivalem ao consenso de especialistas; dados de um único hospital não asseguram generalização geográfica; a seleção de cinco achados não representa toda a prática radiológica; e os ganhos de latência dependem do equipamento e da implementação. Mesmo a não inferioridade estatística no teste não autoriza uso clínico, que exigiria validação externa, estudo prospectivo, avaliação de calibração, análise de segurança e participação de profissionais de saúde. O acesso controlado e o custo do treinamento também podem limitar o cronograma. Por essas razões, a conclusão pretendida será estritamente computacional: se, nas condições declaradas, a poda oferece ou não um compromisso reprodutível entre eficiência e desempenho.
+
+\section{Coerência da Proposta}
+
+O problema parte do custo quadrático da autoatenção e do risco de que a remoção de regiões prejudique a leitura de sinais discretos em radiografias. Desse problema decorre o objetivo geral de avaliar eficiência sem perda preditiva relevante, que é decomposto em objetivos específicos mensuráveis de referência, variação da retenção, teste de não inferioridade e identificação do melhor compromisso. A hipótese transforma \enquote{sem perda relevante} em margem de 0,01 e \enquote{reduz o custo} em queda mínima de 25\% nas operações, evitando uma afirmação imune à refutação. A estratégia, por sua vez, isola a poda ao manter arquitetura, dados e treinamento constantes, mede as duas dimensões da hipótese e estabelece previamente critérios de aceitação e rejeição. Essa cadeia entre contexto, questão, objetivos, hipótese e método segue a exigência de que uma proposta permita antecipar qual evidência poderá confirmá-la ou contrariá-la \citep[cap.~9]{wazlawick2020}.
+
+\section{Utilização de IA}
+
+O tema geral, o problema de classificação de achados em radiografias e as três alternativas iniciais de contribuição foram fornecidos por mim a partir da atividade anterior. Para elaborar esta proposta, utilizei o Codex, ferramenta de IA generativa da OpenAI, para ler os arquivos da disciplina, comparar criticamente as alternativas, localizar fontes acadêmicas, sugerir o recorte de eficiência e não inferioridade, estruturar o protocolo experimental e apoiar a redação em \LaTeX. A escolha de aproveitar a terceira proposta, mas substituir a promessa de superar o estado da arte por uma comparação controlada com o mesmo ViT sem poda, foi sugerida pela IA com base na viabilidade e na possibilidade de refutação. As referências, os números da base e as características dos métodos foram confrontados com páginas oficiais dos conjuntos de dados e com artigos dos respectivos veículos; afirmações clínicas foram limitadas para que o texto não apresente uma avaliação computacional retrospectiva como validação diagnóstica. Antes da submissão, cabe a mim conferir novamente cada citação, revisar o texto à luz dos Capítulos 6 a 9 de Wazlawick, adequar o protocolo aos recursos realmente disponíveis e assumir a responsabilidade integral pelo conteúdo final. O prompt utilizado é reproduzido abaixo sem correções.
+
+\begin{respbox}
+Prompt 1:
+- Voce deve agir como um pesquisador/estudante para monografia em ciencia da comuputacao, e desenvolver tudo que se pede no documento: PropostaDePesquisa_Parte2, seguindo estritamente todas as regras.
+- O tema escolhida esta presente na atividade:meto1, a abordagem entre as propostas apresentadas voce deve escolher qual a mais correta/justa.
+- O MODELO DITO: " template disponibilizado no repositório da disciplina no GitHub " é o modelo main.tex anexado, voce devera desenvolver tudo no latex, acessando o https://www.overleaf.com/project< e criando la os projetos, via acesso do computador/navegador
+- O arquivo "JOAO VITOR COELHO OLIVEIRA_1769009_assignsubmission_file_Dark patterns___Metodologia_Cientifica__Joao Vitor Coelho Oliveira" é um feedback de um proposta aleia(de um aluno passado), é apenas o feedback do prefessor sobre a proposta, mas com base nesse feedback, é uma base do nivel de apresentacao/dados/exemplos/tese que deve ser apresentado nessa proposta
+- Utilize a fonte recomendada, mas como obrigatoria: Capítulos 6, 7, 8 e 9 de Wazlawick, R. S. Metodologia de Pesquisa para
+  Ciência da Computação, 3.ed. Elsevier, 2020.
+\end{respbox}
+
+\bibliographystyle{apalike}
+\bibliography{references}
+
+\end{document}

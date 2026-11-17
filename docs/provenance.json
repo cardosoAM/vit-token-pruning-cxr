@@ -1,0 +1,26 @@
+{
+  "status": "originals_preserved",
+  "note": "SHA-256 dos arquivos locais importados; nenhum resultado experimental.",
+  "files": [
+    {
+      "path": "docs/proposta/main.tex",
+      "sha256": "27C3E8EAA3096272AAF0F110D3D28E22601AF8DB1783E232EC37502307666788"
+    },
+    {
+      "path": "docs/proposta/references.bib",
+      "sha256": "86D3D133FB247D9B7E7105E39B992123878EA9A9CD22A457F28EAF40228A97AA"
+    },
+    {
+      "path": "docs/apresentacao/main.tex",
+      "sha256": "0347FC1C020A32A9B817E598EBDB0DCA2169F3C12B1FB900B81F0A8D51CEAFF7"
+    },
+    {
+      "path": "docs/pdf/proposta.pdf",
+      "sha256": "6F886C9B1FA92DED0D233BF7988629544872808E204DD051145EAEB1BF203041"
+    },
+    {
+      "path": "docs/pdf/apresentacao.pdf",
+      "sha256": "C1F4AD348F18490D06E816D934A89DF00EC9F679D40C4A693B612FBEBBA0B3A4"
+    }
+  ]
+}
